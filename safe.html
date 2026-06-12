@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SafeLink</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#07050E;--bg2:#0C0818;--bg3:#130C21;--card:#160E2A;
+  --p:#6B35CC;--phi:#9B59F5;--pglow:#C084FC;--ppale:#E9D5FF;
+  --pd:#1A0A38;--pm:#3B1E78;
+  --w:#F0EAFF;--w2:#C9BDEA;--muted:#7A6E9A;
+  --red:#FF3B30;--amber:#FF9500;--green:#30D158;
+  --border:rgba(107,53,204,0.22);--borderhi:rgba(107,53,204,0.5);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+html,body{height:100%;background:var(--bg);font-family:'DM Sans',sans-serif;color:var(--w);overflow:hidden;user-select:none}
+
+/* ── SCREENS ── */
+.scr{display:none;flex-direction:column;height:100vh;position:absolute;inset:0;background:var(--bg);overflow:hidden;transition:opacity 0.4s ease,transform 0.4s ease}
+.scr.active{display:flex;opacity:1;transform:translateY(0)}
+.scr.entering{animation:slideIn 0.4s ease forwards}
+.scr.leaving{animation:slideOut 0.35s ease forwards}
+@keyframes slideIn{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideOut{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(-20px)}}
+
+/* ── ORB BG ── */
+.orbs{position:absolute;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.orb{position:absolute;border-radius:50%;filter:blur(90px);animation:of 9s ease-in-out infinite}
+.o1{width:300px;height:300px;background:rgba(107,53,204,0.26);top:-70px;right:-50px}
+.o2{width:220px;height:220px;background:rgba(155,89,245,0.14);bottom:70px;left:-40px;animation-delay:-4s}
+.o3{width:140px;height:140px;background:rgba(192,132,252,0.1);top:42%;left:42%;animation-delay:-7s}
+@keyframes of{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-20px) scale(1.05)}}
+
+/* ── NOISE TEXTURE ── */
+.noise{position:absolute;inset:0;z-index:1;pointer-events:none;opacity:0.03;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")}
+
+/* ── BODY SCROLL ── */
+.body{flex:1;overflow-y:auto;position:relative;z-index:2;padding-bottom:80px}
+.body::-webkit-scrollbar{display:none}
+
+/* ── STATUS BAR ── */
+.sbar{z-index:10;position:relative;padding:10px 20px 4px;display:flex;justify-content:space-between;font-size:11px;color:var(--muted);font-family:'DM Mono',monospace}
+
+/* ── NAV ── */
+.nav{position:absolute;bottom:0;left:0;right:0;z-index:20;background:rgba(12,8,24,0.95);border-top:0.5px solid var(--borderhi);backdrop-filter:blur(24px);display:flex;padding:8px 0 18px}
+.ni{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:5px 0;transition:all 0.2s}
+.ni .ico{font-size:20px;transition:transform 0.25s}
+.ni .lbl{font-size:9px;color:var(--muted);transition:color 0.2s;font-family:'DM Sans',sans-serif;letter-spacing:0.04em}
+.ni.on .lbl{color:var(--phi)}
+.ni.on .ico{transform:scale(1.18)}
+
+/* ── TOAST ── */
+.toast{position:absolute;top:58px;left:14px;right:14px;z-index:400;background:rgba(26,10,56,0.97);border:0.5px solid var(--p);border-radius:12px;padding:10px 14px;font-size:11px;color:var(--w);opacity:0;transition:opacity 0.3s;pointer-events:none;line-height:1.55;backdrop-filter:blur(10px)}
+.toast.on{opacity:1}
+
+/* ══════════════════════════════
+   SIGN IN SCREEN
+══════════════════════════════ */
+#signIn{justify-content:flex-end}
+.si-top{position:absolute;top:0;left:0;right:0;padding:56px 28px 0;z-index:2}
+.si-logo{font-family:'Syne',sans-serif;font-size:38px;font-weight:800;letter-spacing:-0.02em;line-height:1}
+.si-logo .dot{color:var(--phi)}
+.si-tagline{font-size:13px;color:var(--muted);margin-top:8px;line-height:1.6;font-weight:300}
+.si-badge{display:inline-flex;align-items:center;gap:6px;margin-top:16px;background:rgba(48,209,88,0.1);border:0.5px solid rgba(48,209,88,0.35);border-radius:20px;padding:5px 13px;font-size:10px;color:var(--green);letter-spacing:0.06em;font-family:'DM Mono',monospace}
+.si-pdot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pp 2s ease-in-out infinite}
+@keyframes pp{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.4;transform:scale(0.75)}}
+
+.si-card{position:relative;z-index:2;background:rgba(22,14,42,0.92);border:0.5px solid var(--borderhi);border-radius:28px 28px 0 0;padding:28px 24px 40px;backdrop-filter:blur(20px)}
+.si-title{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;margin-bottom:4px}
+.si-sub{font-size:12px;color:var(--muted);margin-bottom:22px}
+.field{position:relative;margin-bottom:14px}
+.field label{display:block;font-size:10px;color:var(--pglow);font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px}
+.field input{width:100%;background:rgba(107,53,204,0.1);border:0.5px solid var(--borderhi);border-radius:12px;padding:13px 14px;font-size:14px;color:var(--w);font-family:'DM Sans',sans-serif;outline:none;transition:all 0.2s}
+.field input:focus{border-color:var(--phi);background:rgba(107,53,204,0.18);box-shadow:0 0 0 3px rgba(155,89,245,0.12)}
+.field input::placeholder{color:var(--muted)}
+.si-btn{width:100%;padding:16px;border-radius:14px;background:linear-gradient(135deg,var(--pm),var(--p));border:none;color:#fff;font-family:'Syne',sans-serif;font-size:15px;font-weight:700;cursor:pointer;letter-spacing:0.04em;transition:all 0.2s;margin-top:6px;position:relative;overflow:hidden}
+.si-btn::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,0.1),transparent);opacity:0;transition:opacity 0.2s}
+.si-btn:hover::after{opacity:1}
+.si-btn:active{transform:scale(0.98)}
+.si-divider{display:flex;align-items:center;gap:10px;margin:16px 0}
+.si-divider::before,.si-divider::after{content:'';flex:1;height:0.5px;background:var(--border)}
+.si-divider span{font-size:11px;color:var(--muted)}
+.si-skip{width:100%;padding:13px;border-radius:14px;background:transparent;border:0.5px solid var(--border);color:var(--muted);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;transition:all 0.2s}
+.si-skip:hover{border-color:var(--borderhi);color:var(--w2)}
+.ec-mini{background:rgba(107,53,204,0.08);border:0.5px dashed var(--border);border-radius:10px;padding:10px 12px;margin-bottom:10px;position:relative}
+.ec-mini input{width:100%;background:none;border:none;color:var(--w);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;padding:2px 0}
+.ec-mini input::placeholder{color:var(--muted)}
+.ec-mini .ec-sep{height:0.5px;background:var(--border);margin:7px 0}
+.add-ec{width:100%;background:none;border:0.5px dashed var(--border);border-radius:10px;padding:9px;color:var(--pglow);font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;margin-bottom:14px}
+.step-dots{display:flex;gap:5px;justify-content:center;margin-bottom:18px}
+.sdot{width:6px;height:6px;border-radius:50%;background:var(--border);transition:all 0.3s}
+.sdot.on{background:var(--phi);width:18px;border-radius:4px}
+
+/* ══════════════════════════════
+   CALCULATOR SCREEN
+══════════════════════════════ */
+.calc-disp{padding:20px 20px 10px;text-align:right;position:relative;z-index:2}
+.calc-expr{font-size:14px;color:var(--muted);min-height:20px;font-family:'DM Mono',monospace;transition:all 0.2s}
+.calc-num{font-family:'DM Mono',monospace;font-size:54px;font-weight:300;line-height:1.1;color:var(--w);overflow:hidden;text-overflow:ellipsis;transition:all 0.15s}
+.calc-num.flash{animation:numFlash 0.12s ease}
+@keyframes numFlash{0%,100%{opacity:1}50%{opacity:0.5}}
+
+.calc-grid{padding:0 12px 0;display:grid;grid-template-columns:repeat(4,1fr);gap:8px;position:relative;z-index:2}
+.cb{border:none;border-radius:50%;aspect-ratio:1;font-family:'DM Mono',monospace;font-size:20px;cursor:pointer;transition:all 0.12s;display:flex;align-items:center;justify-content:center;font-weight:400;position:relative;overflow:hidden}
+.cb::before{content:'';position:absolute;inset:0;background:rgba(255,255,255,0.15);border-radius:50%;transform:scale(0);opacity:0;transition:transform 0.3s,opacity 0.3s}
+.cb.tap::before{transform:scale(2.5);opacity:0;transition:transform 0.4s,opacity 0.4s}
+.cb:active{transform:scale(0.9)}
+.cb.num{background:rgba(107,53,204,0.18);color:var(--w);border:0.5px solid rgba(107,53,204,0.28)}
+.cb.fn{background:rgba(107,53,204,0.32);color:var(--ppale)}
+.cb.op{background:var(--p);color:#fff;box-shadow:0 2px 12px rgba(107,53,204,0.3)}
+.cb.op:active{background:var(--phi)}
+.cb.zero{border-radius:50px;grid-column:span 2;aspect-ratio:unset;padding:0 26px;justify-content:flex-start}
+.cb.star{background:rgba(155,89,245,0.16);color:var(--phi);border:1px solid rgba(155,89,245,0.45);position:relative;overflow:hidden;font-size:21px}
+.cb.star:active{background:rgba(155,89,245,0.3)}
+
+/* STAR HOLD PROGRESS */
+.star-ring-wrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.star-ring-svg{position:absolute;inset:-3px;width:calc(100% + 6px);height:calc(100% + 6px)}
+.star-ring-circle{fill:none;stroke:var(--red);stroke-width:3;stroke-linecap:round;stroke-dasharray:200;stroke-dashoffset:200;transition:stroke-dashoffset 0.08s linear;transform-origin:center;transform:rotate(-90deg)}
+.star-label{position:absolute;bottom:4px;left:0;right:0;text-align:center;font-size:6px;color:rgba(155,89,245,0.55);font-family:'DM Sans',sans-serif;letter-spacing:0.05em}
+
+/* HINT BAR */
+.calc-hint{margin:10px 14px 0;background:rgba(107,53,204,0.07);border:0.5px solid var(--border);border-radius:10px;padding:8px 12px;font-size:10px;color:var(--muted);text-align:center;position:relative;z-index:2}
+.calc-hint span{color:var(--phi)}
+
+/* HOLD OVERLAY */
+.hold-ov{display:none;position:absolute;inset:0;z-index:150;background:rgba(7,5,14,0.97);flex-direction:column;align-items:center;justify-content:center;gap:0}
+.hold-ov.on{display:flex}
+.hold-ring{width:150px;height:150px;position:relative;display:flex;align-items:center;justify-content:center}
+.hold-ring-svg{position:absolute;inset:0;width:100%;height:100%}
+.hold-ring-circle{fill:none;stroke:var(--red);stroke-width:3;stroke-linecap:round;stroke-dasharray:440;stroke-dashoffset:440;transform-origin:center;transform:rotate(-90deg) translateX(-150px);transition:stroke-dashoffset 0.08s linear}
+.hold-ring-inner{width:120px;height:120px;border-radius:50%;background:rgba(255,59,48,0.08);border:1.5px solid rgba(255,59,48,0.3);display:flex;align-items:center;justify-content:center;animation:hpulse 0.9s ease-in-out infinite}
+@keyframes hpulse{0%,100%{transform:scale(1);box-shadow:0 0 20px rgba(255,59,48,0.2)}50%{transform:scale(1.05);box-shadow:0 0 40px rgba(255,59,48,0.4)}}
+.hold-secs{position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);font-family:'DM Mono',monospace;font-size:11px;color:var(--red);letter-spacing:0.05em}
+.hold-title{font-family:'Syne',sans-serif;font-size:19px;font-weight:700;color:var(--red);letter-spacing:0.06em;margin-top:24px}
+.hold-sub{font-size:12px;color:var(--muted);margin-top:6px}
+.cancel-btn{margin-top:22px;background:rgba(255,255,255,0.06);border:0.5px solid rgba(255,255,255,0.14);border-radius:10px;padding:10px 30px;color:var(--w2);font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.2s}
+.cancel-btn:hover{background:rgba(255,255,255,0.1)}
+
+/* SOS OVERLAY */
+.sos-ov{display:none;position:absolute;inset:0;z-index:160;background:rgba(90,8,6,0.97);flex-direction:column;align-items:center;padding:36px 20px 24px;overflow-y:auto}
+.sos-ov.on{display:flex;animation:slideIn 0.35s ease}
+.sos-header{display:flex;align-items:center;gap:10px;margin-bottom:22px}
+.sos-blink{width:10px;height:10px;border-radius:50%;background:var(--red);animation:bl 0.75s ease-in-out infinite}
+@keyframes bl{0%,100%{opacity:1}50%{opacity:0.1}}
+.sos-ttl{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:var(--red);letter-spacing:0.1em}
+.sos-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;margin-bottom:14px}
+.sos-cell{background:rgba(255,255,255,0.05);border-radius:10px;padding:10px 12px}
+.sos-cl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:3px;font-family:'DM Mono',monospace}
+.sos-cv{font-size:12px;color:var(--w);font-weight:500;word-break:break-all}
+.sos-cv.g{color:var(--green)}.sos-cv.r{color:var(--red)}
+.cam-box{width:100%;background:#000;border-radius:12px;height:110px;display:flex;align-items:center;justify-content:center;margin-bottom:14px;border:1px solid rgba(255,59,48,0.3);position:relative;overflow:hidden}
+.cam-rec{position:absolute;top:7px;left:7px;background:var(--red);border-radius:5px;padding:3px 7px;font-size:8px;font-weight:700;display:flex;align-items:center;gap:3px;font-family:'DM Mono',monospace}
+.cam-live{position:absolute;top:7px;right:7px;background:rgba(255,149,0,0.9);border-radius:5px;padding:3px 7px;font-size:8px;font-weight:700;font-family:'DM Mono',monospace}
+.sos-msg{width:100%;background:rgba(255,255,255,0.04);border-radius:11px;padding:10px 12px;margin-bottom:12px;font-size:10px;color:#bbb;line-height:1.75;font-family:'DM Mono',monospace}
+.dismiss-btn{width:100%;background:rgba(255,255,255,0.06);border:0.5px solid rgba(255,255,255,0.14);border-radius:12px;padding:13px;color:var(--w2);font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.2s}
+
+/* ══════════════════════════════
+   HOME SCREEN
+══════════════════════════════ */
+.home-hero{padding:20px 22px 0;position:relative;z-index:2}
+.home-greet{font-size:11px;color:var(--muted);letter-spacing:0.12em;text-transform:uppercase;font-family:'DM Mono',monospace;margin-bottom:3px}
+.home-name{font-family:'Syne',sans-serif;font-size:30px;font-weight:800;line-height:1.1}
+.home-name .hl{color:var(--phi)}
+
+.safe-ring{margin:20px auto 0;width:172px;height:172px;position:relative;display:flex;align-items:center;justify-content:center}
+.ring-svg-outer{position:absolute;inset:0;width:100%;height:100%;animation:rspin 16s linear infinite}
+@keyframes rspin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+.ring-core{width:134px;height:134px;border-radius:50%;background:linear-gradient(145deg,var(--pd),var(--bg3));border:1.5px solid rgba(107,53,204,0.38);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 0 40px rgba(107,53,204,0.28),inset 0 0 30px rgba(107,53,204,0.1);transition:all 0.25s}
+.ring-core:active{transform:scale(0.95);box-shadow:0 0 60px rgba(155,89,245,0.45)}
+.ring-ico{font-size:30px;margin-bottom:3px}
+.ring-lbl{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--pglow);letter-spacing:0.12em}
+.ring-sub{font-size:8px;color:var(--muted);margin-top:1px}
+
+.status-pill{margin:13px auto 0;width:fit-content;background:rgba(48,209,88,0.09);border:0.5px solid rgba(48,209,88,0.32);border-radius:20px;padding:5px 14px;font-size:10px;color:var(--green);display:flex;align-items:center;gap:6px;font-family:'DM Mono',monospace}
+.sp-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pp 2s ease-in-out infinite}
+
+.gps-pill{margin:8px auto 0;width:calc(100% - 32px);background:var(--card);border:0.5px solid var(--border);border-radius:10px;padding:9px 13px;display:flex;justify-content:space-between;align-items:center;position:relative;z-index:2}
+.gps-k{font-size:10px;color:var(--muted);font-family:'DM Mono',monospace}
+.gps-v{font-size:10px;color:var(--green);font-weight:500;font-family:'DM Mono',monospace}
+
+.qa-grid{padding:14px 16px 0;display:grid;grid-template-columns:1fr 1fr;gap:9px;position:relative;z-index:2}
+.qa{background:var(--card);border:0.5px solid var(--border);border-radius:16px;padding:14px;cursor:pointer;transition:all 0.2s;display:flex;flex-direction:column;gap:7px}
+.qa:active{transform:scale(0.965);border-color:var(--p)}
+.qa.full{grid-column:span 2;flex-direction:row;align-items:center;gap:13px}
+.qa.rqa{border-color:rgba(255,59,48,0.28);background:rgba(255,59,48,0.04)}
+.qa.aqa{border-color:rgba(255,149,0,0.28);background:rgba(255,149,0,0.04)}
+.qa.gqa{border-color:rgba(48,209,88,0.28);background:rgba(48,209,88,0.04)}
+.qa-ico{font-size:21px}
+.qa-t{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--w)}
+.qa-s{font-size:10px;color:var(--muted);line-height:1.45}
+
+/* ══════════════════════════════
+   DASHBOARD SCREEN
+══════════════════════════════ */
+.dash-stats{padding:10px 15px;display:grid;grid-template-columns:repeat(3,1fr);gap:7px;position:relative;z-index:2}
+.dstat{background:var(--card);border-radius:12px;padding:10px;text-align:center;border:0.5px solid var(--border)}
+.dnum{font-family:'Syne',sans-serif;font-size:24px;font-weight:700}
+.dnum.r{color:var(--red)}.dnum.a{color:var(--amber)}.dnum.g{color:var(--green)}
+.dlbl{font-size:9px;color:var(--muted);margin-top:2px;font-family:'DM Mono',monospace}
+
+.alert-card{margin:0 15px 9px;background:var(--card);border-radius:14px;padding:12px 14px;position:relative;z-index:2}
+.alert-card.r{border-left:3px solid var(--red)}
+.alert-card.a{border-left:3px solid var(--amber)}
+.alert-card.g{border-left:3px solid var(--green)}
+.at{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.atype{font-size:10px;font-weight:600;font-family:'DM Mono',monospace}
+.atype.r{color:var(--red)}.atype.a{color:var(--amber)}.atype.g{color:var(--green)}
+.atime{font-size:9px;color:var(--muted);font-family:'DM Mono',monospace}
+.aname{font-family:'Syne',sans-serif;font-size:13px;font-weight:600;margin-bottom:3px}
+.adtl{font-size:10px;color:var(--muted);line-height:1.65;font-family:'DM Mono',monospace}
+.abtns{display:flex;gap:5px;margin-top:8px;flex-wrap:wrap}
+.abtn{border-radius:7px;padding:5px 10px;font-size:9px;cursor:pointer;font-family:'DM Mono',monospace;border:none;font-weight:500;transition:all 0.15s}
+.abtn:active{transform:scale(0.95)}
+.abtn.r{background:var(--red);color:#fff}
+.abtn.a{background:var(--amber);color:#fff}
+.abtn.o{background:rgba(107,53,204,0.18);color:var(--ppale);border:0.5px solid var(--borderhi)}
+.empty-dash{padding:32px 20px;text-align:center;color:var(--muted);font-size:12px;line-height:1.75;font-family:'DM Mono',monospace}
+
+/* SECTION HEADERS */
+.sec-hdr{padding:14px 18px 6px;display:flex;align-items:center;gap:10px;position:relative;z-index:2}
+.back{width:33px;height:33px;border-radius:50%;background:rgba(107,53,204,0.18);border:none;color:var(--w);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.2s}
+.back:active{background:rgba(107,53,204,0.35)}
+.sec-ttl{font-family:'Syne',sans-serif;font-size:19px;font-weight:700}
+
+/* MISC */
+.blink{animation:bl 0.8s ease-in-out infinite}
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════
+     SIGN IN SCREEN
+════════════════════════════ -->
+<div class="scr active" id="signIn">
+  <div class="orbs"><div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div></div>
+  <div class="noise"></div>
+  <div class="si-top">
+    <div class="si-logo">Safe<span class="dot">Link</span></div>
+    <div class="si-tagline">Your invisible shield.<br>Always with you, always silent.</div>
+    <div class="si-badge"><div class="si-pdot"></div>PROTECTED · END-TO-END ENCRYPTED</div>
+  </div>
+  <div class="si-card" id="siCard">
+    <!-- STEP DOTS -->
+    <div class="step-dots">
+      <div class="sdot on" id="sd0"></div>
+      <div class="sdot" id="sd1"></div>
+      <div class="sdot" id="sd2"></div>
+    </div>
+
+    <!-- STEP 0 -->
+    <div id="si0">
+      <div class="si-title">Create your profile</div>
+      <div class="si-sub">Your info stays on your device — never shared.</div>
+      <div class="field"><label>Full name</label><input id="f_name" type="text" placeholder="e.g. Priya Sharma" autocomplete="name"></div>
+      <div class="field"><label>Phone number</label><input id="f_phone" type="tel" placeholder="+91 XXXXX XXXXX" autocomplete="tel"></div>
+      <div class="field"><label>City / District</label><input id="f_city" type="text" placeholder="e.g. Bengaluru"></div>
+      <button class="si-btn" onclick="siStep1()">Continue →</button>
+    </div>
+
+    <!-- STEP 1 (hidden) -->
+    <div id="si1" style="display:none">
+      <div class="si-title">Emergency contacts</div>
+      <div class="si-sub">Who should we alert when you need help?</div>
+      <div id="ecList"></div>
+      <button class="add-ec" onclick="addEC()">+ Add another contact</button>
+      <button class="si-btn" onclick="siStep2()">Continue →</button>
+      <div class="si-divider"><span>or</span></div>
+      <button class="si-skip" onclick="siStep2()">Skip for now</button>
+    </div>
+
+    <!-- STEP 2 (hidden) -->
+    <div id="si2" style="display:none">
+      <div class="si-title">Police & safety number</div>
+      <div class="si-sub">SafeLink will SMS this number when SOS is triggered.</div>
+      <div class="field"><label>Police / control room</label><input id="f_police" type="tel" placeholder="100" value="100"></div>
+      <div class="field"><label>Age (optional)</label><input id="f_age" type="number" placeholder="e.g. 21" min="1" max="120"></div>
+      <button class="si-btn" onclick="finishSignIn()">Get Protected →</button>
+    </div>
+  </div>
+  <div class="toast" id="siToast"></div>
+</div>
+
+<!-- ════════════════════════════
+     CALCULATOR SCREEN
+════════════════════════════ -->
+<div class="scr" id="calcScr">
+  <div class="orbs" style="opacity:0.35"><div class="orb o1"></div><div class="orb o2"></div></div>
+  <div class="noise"></div>
+  <div class="sbar" id="calcClock">9:41<span style="margin-left:auto">●●●● 🔋</span></div>
+
+  <div class="body" style="padding-bottom:20px">
+    <div class="calc-disp">
+      <div class="calc-expr" id="cExpr"></div>
+      <div class="calc-num" id="cNum">0</div>
+    </div>
+    <div class="calc-grid" id="calcGrid">
+      <button class="cb fn" data-val="AC">AC</button>
+      <button class="cb fn" data-val="+/-">+/-</button>
+      <button class="cb fn" data-val="%">%</button>
+      <button class="cb op" data-val="÷">÷</button>
+      <button class="cb num" data-val="7">7</button>
+      <button class="cb num" data-val="8">8</button>
+      <button class="cb num" data-val="9">9</button>
+      <button class="cb op" data-val="×">×</button>
+      <button class="cb num" data-val="4">4</button>
+      <button class="cb num" data-val="5">5</button>
+      <button class="cb num" data-val="6">6</button>
+      <button class="cb op" data-val="−">−</button>
+      <button class="cb num" data-val="1">1</button>
+      <button class="cb num" data-val="2">2</button>
+      <button class="cb num" data-val="3">3</button>
+      <button class="cb op" data-val="+">+</button>
+      <button class="cb num zero" data-val="0">0</button>
+      <button class="cb num" data-val=".">.</button>
+      <button class="cb op" data-val="=">=</button>
+      <!-- STAR BUTTON with SVG progress ring -->
+      <button class="cb star" id="starBtn">
+        ★
+        <span class="star-label">hold 3s</span>
+        <div class="star-ring-wrap">
+          <svg class="star-ring-svg" viewBox="0 0 50 50">
+            <circle class="star-ring-circle" id="starCircle" cx="25" cy="25" r="22"/>
+          </svg>
+        </div>
+      </button>
+    </div>
+    <div class="calc-hint">This is a normal calculator. Only you know — hold <span>★</span> for 3 seconds to silently send SOS.</div>
+    <!-- ONBOARDING NAV -->
+    <div class="onboard-nav" id="calcOnboardNav">
+      <button class="onb-back" onclick="goTo('signIn')">‹ Back</button>
+      <div class="onb-step">Step 2 of 4</div>
+      <button class="onb-next" onclick="gotoHome()">Next → Home</button>
+    </div>
+  </div>
+
+  <!-- HOLD OVERLAY -->
+  <div class="hold-ov" id="calcHoldOv">
+    <div class="hold-ring">
+      <svg class="hold-ring-svg" viewBox="0 0 150 150">
+        <circle cx="75" cy="75" r="70" fill="none" stroke="rgba(255,59,48,0.15)" stroke-width="3"/>
+        <circle class="hold-ring-circle" id="holdRingCircle" cx="75" cy="75" r="70"/>
+      </svg>
+      <div class="hold-ring-inner"><div style="font-size:40px">🆘</div></div>
+      <div class="hold-secs" id="holdSecs">3.0s</div>
+    </div>
+    <div class="hold-title">HOLD TO SEND SOS</div>
+    <div class="hold-sub">Keep holding · release to cancel</div>
+    <button class="cancel-btn" onclick="cancelHold()">Cancel</button>
+  </div>
+
+  <!-- SOS OVERLAY (shown after hold) -->
+  <div class="sos-ov" id="calcSosOv">
+    <div class="sos-header"><div class="sos-blink"></div><div class="sos-ttl">SOS SENT — SILENT MODE</div></div>
+    <div class="sos-grid" id="calcSosGrid"></div>
+    <div class="cam-box" id="calcCamBox">
+      <div class="cam-rec"><div class="blink" style="width:5px;height:5px;background:#fff;border-radius:50%"></div>REC</div>
+      <div class="cam-live">LIVE</div>
+      <video id="calcCamVid" style="width:100%;height:100%;object-fit:cover;display:none" autoplay muted playsinline></video>
+      <div id="calcCamFb" style="font-size:10px;color:#444">Camera activating...</div>
+    </div>
+    <div class="sos-msg" id="calcSosMsg">Sending alert...</div>
+    <div style="font-size:10px;color:#999;text-align:center;margin-bottom:12px">Calculator is still showing. Nobody suspects a thing.</div>
+    <button class="dismiss-btn" onclick="dismissCalcSOS()">✅ I am safe — Cancel SOS</button>
+  </div>
+
+  <div class="toast" id="calcToast"></div>
+</div>
+
+<!-- ════════════════════════════
+     HOME SCREEN
+════════════════════════════ -->
+<div class="scr" id="homeScr">
+  <div class="orbs"><div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div></div>
+  <div class="noise"></div>
+  <div class="sbar"><span id="homeClock">9:41</span><span>SafeLink ● GPS 🔋</span></div>
+  <div class="body">
+    <div class="home-hero">
+      <div class="home-greet" id="homeGreet">Good day</div>
+      <div class="home-name" id="homeName">Welcome</div>
+    </div>
+    <div class="safe-ring">
+      <svg class="ring-svg-outer" viewBox="0 0 172 172">
+        <circle cx="86" cy="86" r="81" fill="none" stroke="rgba(107,53,204,0.16)" stroke-width="1"/>
+        <circle cx="86" cy="86" r="81" fill="none" stroke="url(#rg)" stroke-width="2" stroke-dasharray="8 13" stroke-linecap="round"/>
+        <defs><linearGradient id="rg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#6B35CC"/><stop offset="100%" stop-color="#C084FC"/></linearGradient></defs>
+      </svg>
+      <div class="ring-core" onclick="goTo('dashScr')">
+        <div class="ring-ico">🛡️</div>
+        <div class="ring-lbl">SAFELINK</div>
+        <div class="ring-sub">tap → dashboard</div>
+      </div>
+    </div>
+    <div class="status-pill"><div class="sp-dot"></div><span id="statusTxt">Protected · GPS Active</span></div>
+    <div class="gps-pill"><span class="gps-k">📍 LIVE GPS</span><span class="gps-v" id="gpsVal">Acquiring...</span></div>
+    <div class="qa-grid">
+      <div class="qa rqa" onclick="initSOSHome()"><div class="qa-ico">🆘</div><div class="qa-t">SOS Alert</div><div class="qa-s">Hold 3s — sends emergency</div></div>
+      <div class="qa aqa" onclick="goTo('susScr')"><div class="qa-ico">⚠️</div><div class="qa-t">Suspicious</div><div class="qa-s">Report & start safe call</div></div>
+      <div class="qa gqa" onclick="goTo('shakeScr')"><div class="qa-ico">🎙️</div><div class="qa-t">AI Shield</div><div class="qa-s">Voice threat detection</div></div>
+      <div class="qa" onclick="goTo('dashScr')"><div class="qa-ico">📊</div><div class="qa-t">Dashboard</div><div class="qa-s">View active alerts</div></div>
+      <div class="qa full" onclick="goTo('calcScr')"><div class="qa-ico">🧮</div><div><div class="qa-t">Calculator (disguise)</div><div class="qa-s">Hold ★ to silently trigger SOS — looks normal to others</div></div></div>
+    </div>
+    <div style="height:8px"></div>
+    <div class="onboard-nav" id="homeOnboardNav">
+      <button class="onb-back" onclick="goTo('calcScr')">‹ Back</button>
+      <div class="onb-step">Step 3 of 4</div>
+      <button class="onb-next" onclick="gotoDash()">Next → Dashboard</button>
+    </div>
+  </div>
+  <div class="nav">
+    <div class="ni on" onclick="goTo('homeScr')"><div class="ico">🏠</div><div class="lbl">Home</div></div>
+    <div class="ni" onclick="goTo('calcScr')"><div class="ico">🧮</div><div class="lbl">Disguise</div></div>
+    <div class="ni" onclick="goTo('shakeScr')"><div class="ico">🎙️</div><div class="lbl">AI Shield</div></div>
+    <div class="ni" onclick="goTo('dashScr')"><div class="ico">📊</div><div class="lbl">Dashboard</div></div>
+    <div class="ni" onclick="goTo('profScr')"><div class="ico">👤</div><div class="lbl">Profile</div></div>
+  </div>
+  <!-- HOME SOS HOLD OVERLAY -->
+  <div class="hold-ov" id="homeHoldOv">
+    <div class="hold-ring">
+      <svg class="hold-ring-svg" viewBox="0 0 150 150">
+        <circle cx="75" cy="75" r="70" fill="none" stroke="rgba(255,59,48,0.15)" stroke-width="3"/>
+        <circle class="hold-ring-circle" id="homeHoldCircle" cx="75" cy="75" r="70"/>
+      </svg>
+      <div class="hold-ring-inner"><div style="font-size:40px">🆘</div></div>
+      <div class="hold-secs" id="homeHoldSecs">3.0s</div>
+    </div>
+    <div class="hold-title">HOLD TO SEND SOS</div>
+    <div class="hold-sub">Keep holding · release to cancel</div>
+    <button class="cancel-btn" onclick="cancelHomeHold()">Cancel</button>
+  </div>
+  <!-- HOME SOS ACTIVE OVERLAY -->
+  <div class="sos-ov" id="homeSosOv">
+    <div class="sos-header"><div class="sos-blink"></div><div class="sos-ttl">SOS ALERT ACTIVE</div></div>
+    <div class="sos-grid" id="homeSosGrid"></div>
+    <div class="cam-box">
+      <div class="cam-rec"><div class="blink" style="width:5px;height:5px;background:#fff;border-radius:50%"></div>REC</div>
+      <div class="cam-live">LIVE</div>
+      <video id="homeCamVid" style="width:100%;height:100%;object-fit:cover;display:none" autoplay muted playsinline></video>
+      <div id="homeCamFb" style="font-size:10px;color:#444">Camera activating...</div>
+    </div>
+    <div class="sos-msg" id="homeSosMsg">Sending alert...</div>
+    <button class="dismiss-btn" onclick="dismissHomeSOS()">✅ I am safe — Cancel SOS</button>
+  </div>
+  <div class="toast" id="homeToast"></div>
+</div>
+
+<!-- ════════════════════════════
+     DASHBOARD SCREEN
+════════════════════════════ -->
+<div class="scr" id="dashScr">
+  <div class="orbs" style="opacity:0.22"><div class="orb o1"></div></div>
+  <div class="noise"></div>
+  <div class="sbar"><span></span><span>●●●● 🔋</span></div>
+  <div class="body">
+    <div class="sec-hdr">
+      <button class="back" onclick="goTo('homeScr')">‹</button>
+      <div class="sec-ttl">Live Alerts</div>
+    </div>
+    <div class="dash-stats">
+      <div class="dstat"><div class="dnum r" id="dSOS">0</div><div class="dlbl">SOS</div></div>
+      <div class="dstat"><div class="dnum a" id="dSUS">0</div><div class="dlbl">Suspicious</div></div>
+      <div class="dstat"><div class="dnum g" id="dAI">0</div><div class="dlbl">AI Detected</div></div>
+    </div>
+    <div id="alertFeed"><div class="empty-dash">No active alerts.<br><br>Alerts appear here when you trigger<br>SOS, suspicious, or AI detects distress.</div></div>
+    <div class="onboard-nav" id="dashOnboardNav">
+      <button class="onb-back" onclick="goTo('homeScr')">‹ Back</button>
+      <div class="onb-step">Step 4 of 4</div>
+      <button class="onb-next" onclick="finishOnboarding()">Done ✓ Start using</button>
+    </div>
+  </div>
+  <div class="nav">
+    <div class="ni" onclick="goTo('homeScr')"><div class="ico">🏠</div><div class="lbl">Home</div></div>
+    <div class="ni" onclick="goTo('calcScr')"><div class="ico">🧮</div><div class="lbl">Disguise</div></div>
+    <div class="ni" onclick="goTo('shakeScr')"><div class="ico">🎙️</div><div class="lbl">AI Shield</div></div>
+    <div class="ni on" onclick="goTo('dashScr')"><div class="ico">📊</div><div class="lbl">Dashboard</div></div>
+    <div class="ni" onclick="goTo('profScr')"><div class="ico">👤</div><div class="lbl">Profile</div></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════
+     SUSPICIOUS SCREEN
+════════════════════════════ -->
+<div class="scr" id="susScr">
+  <div class="orbs" style="opacity:0.22"><div class="orb o1" style="background:rgba(255,149,0,0.14)"></div></div>
+  <div class="noise"></div>
+  <div class="sbar"><span></span><span>●●●● 🔋</span></div>
+  <div class="body">
+    <div class="sec-hdr"><button class="back" onclick="goTo('homeScr')">‹</button><div class="sec-ttl">Report Suspicious</div></div>
+    <div style="margin:0 15px 10px;background:rgba(255,149,0,0.07);border:0.5px solid rgba(255,149,0,0.3);border-radius:13px;padding:11px 13px;position:relative;z-index:2">
+      <div style="font-size:11px;color:var(--amber);font-weight:600;margin-bottom:3px">⚠ Suspicious mode active</div>
+      <div style="font-size:10px;color:var(--muted);line-height:1.65">Camera started automatically. Location tracked. Background call keeps you connected.</div>
+    </div>
+    <div style="margin:0 15px 9px;background:var(--card);border:0.5px solid var(--border);border-radius:14px;padding:13px;position:relative;z-index:2">
+      <div style="font-size:10px;color:var(--pglow);font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:9px">How many people?</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px" id="cntTags">
+        <span class="stag" onclick="selTag(this,'c')">1 person</span><span class="stag" onclick="selTag(this,'c')">2 people</span><span class="stag" onclick="selTag(this,'c')">3 people</span><span class="stag" onclick="selTag(this,'c')">4+ people</span><span class="stag" onclick="selTag(this,'c')">Not sure</span>
+      </div>
+    </div>
+    <div style="margin:0 15px 9px;background:var(--card);border:0.5px solid var(--border);border-radius:14px;padding:13px;position:relative;z-index:2">
+      <div style="font-size:10px;color:var(--pglow);font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:9px">Why do you feel unsafe?</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px" id="rsnTags">
+        <span class="stag" onclick="selTag(this,'r')">Being followed</span><span class="stag" onclick="selTag(this,'r')">Verbal harassment</span><span class="stag" onclick="selTag(this,'r')">Physical threat</span><span class="stag" onclick="selTag(this,'r')">Unknown person</span><span class="stag" onclick="selTag(this,'r')">Late night / isolated</span><span class="stag" onclick="selTag(this,'r')">Vehicle following</span><span class="stag" onclick="selTag(this,'r')">Other</span>
+      </div>
+    </div>
+    <div style="margin:0 15px 9px;background:var(--card);border:0.5px solid var(--border);border-radius:14px;padding:13px;position:relative;z-index:2">
+      <div style="font-size:10px;color:var(--pglow);font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px">Describe the situation</div>
+      <textarea id="susDesc" style="width:100%;background:rgba(107,53,204,0.08);border:0.5px solid var(--borderhi);border-radius:10px;padding:10px;font-size:12px;color:var(--w);font-family:'DM Sans',sans-serif;resize:none;outline:none" rows="3" placeholder="What's happening? (optional — auto-saved with alert)"></textarea>
+    </div>
+    <div style="margin:0 15px 9px;background:var(--card);border:0.5px solid var(--border);border-radius:14px;padding:13px;position:relative;z-index:2">
+      <div style="font-size:10px;color:var(--pglow);font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px">Safety call</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:12px;color:var(--w2)">Call emergency contact</span><span id="callStat" style="font-size:11px;color:var(--muted)">Ready</span></div>
+      <button onclick="startSafeCall()" style="width:100%;background:rgba(48,209,88,0.09);border:0.5px solid rgba(48,209,88,0.32);border-radius:10px;padding:10px;color:var(--green);font-size:12px;font-family:'DM Sans',sans-serif;cursor:pointer">📞 Start safety call</button>
+    </div>
+    <div class="cam-box" style="margin:0 15px 10px;height:88px;position:relative;z-index:2">
+      <div class="cam-rec"><div class="blink" style="width:5px;height:5px;background:#fff;border-radius:50%"></div>Recording</div>
+      <div class="cam-live">Auto-backup</div>
+      <video id="susVid" style="width:100%;height:100%;object-fit:cover;display:none" autoplay muted playsinline></video>
+      <div id="susFb" style="font-size:10px;color:#444">Camera feed (tap to grant permission)</div>
+    </div>
+    <button onclick="sendSusAlert()" style="margin:0 15px 14px;width:calc(100% - 30px);padding:15px;border-radius:14px;background:linear-gradient(135deg,rgba(255,149,0,0.35),rgba(255,149,0,0.18));border:1px solid rgba(255,149,0,0.5);color:var(--amber);font-family:'Syne',sans-serif;font-size:14px;font-weight:700;cursor:pointer;position:relative;z-index:2">⚠ Send Alert to Police Dashboard</button>
+  </div>
+  <div class="toast" id="susToast"></div>
+</div>
+
+<!-- ════════════════════════════
+     AI SHIELD SCREEN
+════════════════════════════ -->
+<div class="scr" id="shakeScr">
+  <div class="orbs" style="opacity:0.28"><div class="orb o2" style="background:rgba(48,209,88,0.1)"></div></div>
+  <div class="noise"></div>
+  <div class="sbar"><span></span><span>●●●● 🔋</span></div>
+  <div class="body">
+    <div class="sec-hdr"><button class="back" onclick="goTo('homeScr')">‹</button><div class="sec-ttl">AI Voice Shield</div></div>
+    <div style="margin:0 15px 6px;font-size:11px;color:var(--muted);text-align:center;line-height:1.65;position:relative;z-index:2">Shake phone or activate — AI listens every 5s for distress keywords in English, Hindi, Kannada, Telugu.</div>
+    <div id="aiRing" style="margin:14px auto 8px;width:112px;height:112px;border-radius:50%;background:rgba(48,209,88,0.07);border:2px solid rgba(48,209,88,0.32);display:flex;flex-direction:column;align-items:center;justify-content:center;transition:all 0.4s;position:relative;z-index:2">
+      <div style="font-size:28px">🎙️</div>
+      <div id="aiRlbl" style="font-size:9px;font-weight:600;letter-spacing:0.08em;margin-top:4px;color:var(--green);font-family:'DM Mono',monospace">STANDBY</div>
+    </div>
+    <div id="waveEl" style="height:44px;display:flex;align-items:center;justify-content:center;gap:3px;padding:0 18px;margin-bottom:8px;position:relative;z-index:2"></div>
+    <div id="safeCard" style="margin:0 15px 9px;background:rgba(48,209,88,0.06);border:0.5px solid rgba(48,209,88,0.26);border-radius:13px;padding:12px 13px;position:relative;z-index:2">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span style="font-size:10px;color:var(--muted);font-family:'DM Mono',monospace">Status</span><span id="aiStatus" style="font-size:11px;color:var(--green);font-weight:500;font-family:'DM Mono',monospace">Waiting</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span style="font-size:10px;color:var(--muted);font-family:'DM Mono',monospace">Last check</span><span id="aiLast" style="font-size:11px;color:var(--w);font-family:'DM Mono',monospace">—</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:10px;color:var(--muted);font-family:'DM Mono',monospace">Snippets</span><span id="aiCount" style="font-size:11px;color:var(--w);font-family:'DM Mono',monospace">0</span></div>
+    </div>
+    <div id="threatCard" style="display:none;margin:0 15px 9px;background:rgba(255,59,48,0.06);border:0.5px solid rgba(255,59,48,0.34);border-radius:13px;padding:12px 13px;position:relative;z-index:2">
+      <div style="font-size:10px;color:var(--red);font-weight:600;font-family:'DM Mono',monospace;margin-bottom:6px">⚠ DISTRESS DETECTED</div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:10px;color:var(--muted);font-family:'DM Mono',monospace">Keywords</span><span id="tKw" style="font-size:11px;color:var(--red);font-family:'DM Mono',monospace">—</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:10px;color:var(--muted);font-family:'DM Mono',monospace">Confidence</span><span id="tConf" style="font-size:11px;color:var(--red);font-family:'DM Mono',monospace">—</span></div>
+      <div id="tChips" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:5px"></div>
+      <div id="tMsg" style="font-size:10px;color:var(--muted);margin-top:8px;font-family:'DM Mono',monospace"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin:0 15px 10px;position:relative;z-index:2">
+      <button onclick="toggleAI()" id="aiBtn" style="flex:1;background:rgba(48,209,88,0.09);border:0.5px solid rgba(48,209,88,0.28);border-radius:10px;padding:10px;color:var(--green);font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.2s">🎙 Activate</button>
+      <button onclick="stopAI()" style="flex:1;background:rgba(255,59,48,0.07);border:0.5px solid rgba(255,59,48,0.24);border-radius:10px;padding:10px;color:var(--red);font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif">⏹ Stop</button>
+    </div>
+    <div style="margin:0 15px 8px;background:var(--card);border:0.5px solid var(--border);border-radius:14px;padding:13px;position:relative;z-index:2">
+      <div style="font-size:10px;color:var(--pglow);font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:9px">Settings</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:0.5px solid rgba(107,53,204,0.1)">
+        <div><div style="font-size:12px;color:var(--w2)">Shake to activate</div><div style="font-size:10px;color:var(--muted)">When phone is grabbed</div></div>
+        <div class="toggle on" id="shakeTog" onclick="this.classList.toggle('on')"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0">
+        <div><div style="font-size:12px;color:var(--w2)">Auto-alert on detect</div><div style="font-size:10px;color:var(--muted)">Send SMS automatically</div></div>
+        <div class="toggle on" id="autoTog" onclick="this.classList.toggle('on')"></div>
+      </div>
+    </div>
+    <div style="height:8px"></div>
+  </div>
+  <div class="nav">
+    <div class="ni" onclick="goTo('homeScr')"><div class="ico">🏠</div><div class="lbl">Home</div></div>
+    <div class="ni" onclick="goTo('calcScr')"><div class="ico">🧮</div><div class="lbl">Disguise</div></div>
+    <div class="ni on"><div class="ico">🎙️</div><div class="lbl">AI Shield</div></div>
+    <div class="ni" onclick="goTo('dashScr')"><div class="ico">📊</div><div class="lbl">Dashboard</div></div>
+    <div class="ni" onclick="goTo('profScr')"><div class="ico">👤</div><div class="lbl">Profile</div></div>
+  </div>
+  <div class="toast" id="shakeToast"></div>
+</div>
+
+<!-- ════════════════════════════
+     PROFILE SCREEN
+════════════════════════════ -->
+<div class="scr" id="profScr">
+  <div class="orbs" style="opacity:0.22"><div class="orb o1"></div></div>
+  <div class="noise"></div>
+  <div class="sbar"><span></span><span>●●●● 🔋</span></div>
+  <div class="body">
+    <div class="sec-hdr"><button class="back" onclick="goTo('homeScr')">‹</button><div class="sec-ttl">Profile</div></div>
+    <div style="padding:16px 18px 14px;display:flex;gap:14px;align-items:center;position:relative;z-index:2">
+      <div id="profAv" style="width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,var(--pm),var(--pd));border:2px solid var(--phi);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:20px;font-weight:800;flex-shrink:0">?</div>
+      <div>
+        <div id="profName" style="font-family:'Syne',sans-serif;font-size:19px;font-weight:700">—</div>
+        <div id="profPhone" style="font-size:12px;color:var(--muted);margin-top:2px;font-family:'DM Mono',monospace">—</div>
+        <div style="font-size:11px;color:var(--green);margin-top:3px;display:flex;align-items:center;gap:5px"><span class="sp-dot"></span>SafeLink Active</div>
+      </div>
+    </div>
+    <div style="margin:0 15px 14px;position:relative;z-index:2">
+      <div style="font-size:10px;color:var(--pglow);letter-spacing:0.1em;text-transform:uppercase;font-weight:600;margin-bottom:7px;padding:0 2px">Emergency contacts</div>
+      <div id="profECs" style="background:var(--card);border-radius:13px;padding:14px;font-size:12px;color:var(--muted);text-align:center">No contacts</div>
+    </div>
+    <div style="margin:0 15px 14px;position:relative;z-index:2">
+      <div style="font-size:10px;color:var(--pglow);letter-spacing:0.1em;text-transform:uppercase;font-weight:600;margin-bottom:7px;padding:0 2px">Location</div>
+      <div style="background:var(--card);border-radius:13px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center">
+        <div><div style="font-size:12px;color:var(--w2)">Current GPS</div><div id="profGPS" style="font-size:10px;color:var(--muted);margin-top:1px;font-family:'DM Mono',monospace">Not yet acquired</div></div>
+      </div>
+    </div>
+    <div style="margin:0 15px 14px;position:relative;z-index:2">
+      <div style="font-size:10px;color:var(--pglow);letter-spacing:0.1em;text-transform:uppercase;font-weight:600;margin-bottom:7px;padding:0 2px">Account</div>
+      <div style="background:var(--card);border-radius:13px;overflow:hidden">
+        <div onclick="location.reload()" style="padding:12px 14px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;border-bottom:0.5px solid rgba(107,53,204,0.1)"><span style="font-size:13px;color:var(--w2)">Edit profile</span><span style="color:var(--phi)">›</span></div>
+        <div onclick="resetApp()" style="padding:12px 14px;display:flex;justify-content:space-between;align-items:center;cursor:pointer"><span style="font-size:13px;color:var(--red)">Reset SafeLink</span><span style="color:var(--red)">›</span></div>
+      </div>
+    </div>
+    <div style="margin:0 15px 28px;text-align:center;font-size:10px;color:var(--muted);line-height:1.75;font-family:'DM Mono',monospace;position:relative;z-index:2">SafeLink v1.0 · IDLT Project<br>All data stored locally · Never shared</div>
+  </div>
+  <div class="nav">
+    <div class="ni" onclick="goTo('homeScr')"><div class="ico">🏠</div><div class="lbl">Home</div></div>
+    <div class="ni" onclick="goTo('calcScr')"><div class="ico">🧮</div><div class="lbl">Disguise</div></div>
+    <div class="ni" onclick="goTo('shakeScr')"><div class="ico">🎙️</div><div class="lbl">AI Shield</div></div>
+    <div class="ni" onclick="goTo('dashScr')"><div class="ico">📊</div><div class="lbl">Dashboard</div></div>
+    <div class="ni on"><div class="ico">👤</div><div class="lbl">Profile</div></div>
+  </div>
+  <div class="toast" id="profToast"></div>
+</div>
+
+<style>
+.stag{background:rgba(107,53,204,0.13);border:0.5px solid rgba(107,53,204,0.28);border-radius:20px;padding:5px 11px;font-size:11px;color:var(--w2);cursor:pointer;transition:all 0.15s}
+.stag.on{background:var(--p);border-color:var(--phi);color:#fff}
+.toggle{width:38px;height:22px;border-radius:11px;background:rgba(107,53,204,0.22);position:relative;cursor:pointer;transition:background 0.2s;flex-shrink:0}
+.toggle::after{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:3px;right:3px;transition:transform 0.2s}
+.toggle.on{background:var(--p)}
+.toggle:not(.on)::after{transform:translateX(-16px)}
+
+/* ── ONBOARDING NAV BAR ── */
+.onboard-nav{display:flex;align-items:center;justify-content:space-between;margin:12px 14px 0;background:rgba(107,53,204,0.1);border:0.5px solid var(--borderhi);border-radius:14px;padding:10px 14px;position:relative;z-index:2}
+.onb-back{background:none;border:0.5px solid var(--border);border-radius:9px;padding:7px 13px;color:var(--muted);font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.2s}
+.onb-back:hover{border-color:var(--borderhi);color:var(--w2)}
+.onb-step{font-size:10px;color:var(--pglow);font-family:'DM Mono',monospace;letter-spacing:0.06em}
+.onb-next{background:linear-gradient(135deg,var(--pm),var(--p));border:none;border-radius:9px;padding:7px 14px;color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:'Syne',sans-serif;transition:all 0.2s;letter-spacing:0.03em}
+.onb-next:active{transform:scale(0.96)}
+.onb-next.done{background:linear-gradient(135deg,rgba(48,209,88,0.6),rgba(48,209,88,0.3));border:0.5px solid rgba(48,209,88,0.5);color:var(--green)}
+</style>
+
+<script>
+// ══ STATE ══
+let U={}, GPS=null, alerts=[], aiOn=false, aiSnips=0, recog=null;
+let holdTimer=null, holdPct=0, starTimer=null, starPct=0;
+const CIRC_HOLD = 2*Math.PI*70; // r=70 circle
+const CIRC_STAR = 2*Math.PI*22; // r=22 small star circle
+
+// ══ PERSIST ══
+function save(){try{localStorage.setItem('sl',JSON.stringify(U));}catch(e){}}
+function load(){try{const d=localStorage.getItem('sl');if(d){U=JSON.parse(d);return true;}}catch(e){}return false;}
+
+// ══ BOOT ══
+window.onload=()=>{
+  if(load()&&U.name){launchApp();}
+  else{addEC();showScreen('signIn');}
+  buildWave();
+  startClock();
+  watchGPS();
+  setupShake();
+  // wire calc buttons
+  document.querySelectorAll('#calcGrid .cb:not(.star)').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      btn.classList.add('tap');
+      setTimeout(()=>btn.classList.remove('tap'),400);
+      ci(btn.dataset.val);
+    });
+  });
+  const star=document.getElementById('starBtn');
+  star.addEventListener('mousedown',startStar);
+  star.addEventListener('mouseup',stopStar);
+  star.addEventListener('mouseleave',stopStar);
+  star.addEventListener('touchstart',e=>{e.preventDefault();startStar();},{passive:false});
+  star.addEventListener('touchend',stopStar);
+};
+
+// ══ SCREEN TRANSITION ══
+function showScreen(id){
+  document.querySelectorAll('.scr').forEach(s=>{s.classList.remove('active','entering');});
+  const el=document.getElementById(id);
+  el.classList.add('active','entering');
+}
+function goTo(id){
+  showScreen(id);
+  // update nav active state
+  const navMap={homeScr:0,calcScr:1,shakeScr:2,dashScr:3,profScr:4};
+  document.querySelectorAll(`#${id} .nav .ni`).forEach((n,i)=>{
+    n.classList.toggle('on', i===navMap[id]);
+  });
+}
+
+// ══ CLOCK ══
+function startClock(){
+  function t(){
+    const n=new Date(),h=n.getHours().toString().padStart(2,'0'),m=n.getMinutes().toString().padStart(2,'0');
+    ['homeClock','calcClock'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=h+':'+m;});
+  }
+  t();setInterval(t,10000);
+}
+
+// ══ GPS ══
+function watchGPS(){
+  if(!navigator.geolocation)return;
+  navigator.geolocation.watchPosition(p=>{
+    GPS=p.coords;
+    const lat=p.coords.latitude.toFixed(5),lng=p.coords.longitude.toFixed(5);
+    const v=`${lat}°N  ${lng}°E`;
+    ['gpsVal','profGPS'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=v;});
+  },()=>{const el=document.getElementById('gpsVal');if(el)el.textContent='Unavailable';},{enableHighAccuracy:true,maximumAge:5000});
+}
+
+// ══ SETUP ══
+let ecN=0;
+function addEC(){
+  ecN++;
+  const id=`ec${ecN}`;
+  const d=document.createElement('div');
+  d.className='ec-mini';d.id=id;
+  d.innerHTML=`<button class="ec-rm" onclick="document.getElementById('${id}').remove()" style="position:absolute;top:8px;right:10px;background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;line-height:1">×</button>
+    <input placeholder="Contact name *" id="${id}_n" type="text" style="color:var(--w);background:none;border:none;font-family:'DM Sans',sans-serif;font-size:13px;outline:none;width:100%;padding:2px 0">
+    <div class="ec-sep"></div>
+    <input placeholder="Phone number *" id="${id}_p" type="tel" style="color:var(--w);background:none;border:none;font-family:'DM Sans',sans-serif;font-size:13px;outline:none;width:100%;padding:2px 0">
+    <div class="ec-sep"></div>
+    <input placeholder="Relation (e.g. Mom, Friend)" id="${id}_r" type="text" style="color:var(--w);background:none;border:none;font-family:'DM Sans',sans-serif;font-size:13px;outline:none;width:100%;padding:2px 0">`;
+  document.getElementById('ecList').appendChild(d);
+}
+function siStep1(){
+  const name=document.getElementById('f_name').value.trim();
+  const phone=document.getElementById('f_phone').value.trim();
+  if(!name||!phone){toast('siToast','Please enter your name and phone number');return;}
+  U.name=name;U.phone=phone;U.city=document.getElementById('f_city').value.trim();save();
+  document.getElementById('si0').style.display='none';
+  document.getElementById('si1').style.display='block';
+  document.getElementById('sd0').classList.remove('on');
+  document.getElementById('sd1').classList.add('on');
+}
+function siStep2(){
+  const contacts=[];
+  for(let i=1;i<=ecN;i++){
+    const nEl=document.getElementById(`ec${i}_n`),pEl=document.getElementById(`ec${i}_p`),rEl=document.getElementById(`ec${i}_r`);
+    if(nEl&&pEl&&nEl.value.trim()&&pEl.value.trim()) contacts.push({name:nEl.value.trim(),phone:pEl.value.trim(),relation:rEl?.value.trim()||'Contact'});
+  }
+  U.contacts=contacts;save();
+  document.getElementById('si1').style.display='none';
+  document.getElementById('si2').style.display='block';
+  document.getElementById('sd1').classList.remove('on');
+  document.getElementById('sd2').classList.add('on');
+}
+function finishSignIn(){
+  U.police=document.getElementById('f_police').value||'100';
+  U.age=document.getElementById('f_age').value;
+  save();launchApp();
+}
+function launchApp(){
+  showScreen('calcScr');
+  toast('calcToast','Welcome '+U.name+'! Explore the calculator, then tap Next to continue.');
+  setupHomeData();
+}
+function setupHomeData(){
+  const hr=new Date().getHours();
+  document.getElementById('homeGreet').textContent=hr<12?'Good morning':hr<17?'Good afternoon':'Good evening';
+  const parts=(U.name||'').trim().split(' ');
+  document.getElementById('homeName').innerHTML=parts[0]+(parts[1]?` <span class="hl">${parts.slice(1).join(' ')}</span>`:'');
+  renderAlerts();
+  renderProfile();
+}
+
+// ══ CALCULATOR ══
+let cV='0',cOp='',cPrev='';
+function ci(v){
+  const n=document.getElementById('cNum'),e=document.getElementById('cExpr');
+  n.classList.add('flash');setTimeout(()=>n.classList.remove('flash'),120);
+  if(v==='AC'){cV='0';cOp='';cPrev='';n.textContent='0';e.textContent='';}
+  else if(v==='='){
+    try{
+      const ex=(cPrev||'0')+cOp+cV;
+      e.textContent=ex+' =';
+      const res=Function('"use strict";return('+ex.replace('×','*').replace('÷','/').replace('−','-')+')')();
+      n.textContent=parseFloat(res.toFixed(8));
+      cV=String(res);cOp='';cPrev='';
+    }catch(err){n.textContent='Error';}
+  }else if(['+','-','×','÷','−'].includes(v)){
+    cPrev=cV;cOp=v;e.textContent=cV+' '+v;cV='0';n.textContent='0';
+  }else if(v==='+/-'){cV=String(-parseFloat(cV)||0);n.textContent=cV;}
+  else if(v==='%'){cV=String(parseFloat(cV)/100);n.textContent=cV;}
+  else{if(cV==='0'||cV==='Error')cV=v;else cV+=v;n.textContent=cV;}
+}
+
+// ══ STAR HOLD (with SVG ring progress) ══
+const STAR_CIRC=2*Math.PI*22;
+function startStar(){
+  starPct=0;
+  document.getElementById('calcHoldOv').classList.add('on');
+  const circle=document.getElementById('holdRingCircle');
+  circle.style.strokeDashoffset=CIRC_HOLD;
+  const secsEl=document.getElementById('holdSecs');
+  starTimer=setInterval(()=>{
+    starPct+=3.34;
+    const progress=Math.min(starPct,100)/100;
+    // Update big hold ring
+    circle.style.strokeDashoffset=CIRC_HOLD*(1-progress);
+    // Update small star ring
+    const sc=document.getElementById('starCircle');
+    if(sc) sc.style.strokeDashoffset=STAR_CIRC*(1-progress);
+    // Update seconds
+    const remaining=Math.max(0,(3*(1-progress))).toFixed(1);
+    secsEl.textContent=remaining+'s';
+    if(starPct>=100){stopStar(true);}
+  },100);
+}
+function stopStar(fire){
+  clearInterval(starTimer);starPct=0;
+  const sc=document.getElementById('starCircle');
+  if(sc) sc.style.strokeDashoffset=STAR_CIRC;
+  document.getElementById('calcHoldOv').classList.remove('on');
+  document.getElementById('holdRingCircle').style.strokeDashoffset=CIRC_HOLD;
+  document.getElementById('holdSecs').textContent='3.0s';
+  if(fire===true) fireCalcSOS();
+}
+function cancelHold(){stopStar(false);}
+async function fireCalcSOS(){
+  buildSOSGrid('calcSosGrid');
+  const ok=await startCam('calcCamVid','calcCamFb');
+  const gpsStr=GPS?`${GPS.latitude.toFixed(5)}°N, ${GPS.longitude.toFixed(5)}°E`:'Unavailable';
+  document.getElementById('calcSosMsg').innerHTML=
+    `📍 ${gpsStr}<br>📹 Camera: ${ok?'Recording ●':'Permission needed'}<br>🚨 Alert logged · Police: ${U.police||'100'}`;
+  logAlert('SOS (silent)','sos',gpsStr);
+  document.getElementById('calcSosOv').classList.add('on');
+  toast('calcToast','🆘 Silent SOS sent! Police notified.');
+}
+function dismissCalcSOS(){
+  document.getElementById('calcSosOv').classList.remove('on');
+  stopCam();
+}
+
+// ══ HOME SOS ══
+function initSOSHome(){
+  document.getElementById('homeHoldOv').classList.add('on');
+  holdPct=0;
+  const circle=document.getElementById('homeHoldCircle');
+  circle.style.strokeDashoffset=CIRC_HOLD;
+  holdTimer=setInterval(()=>{
+    holdPct+=3.34;
+    const progress=Math.min(holdPct,100)/100;
+    circle.style.strokeDashoffset=CIRC_HOLD*(1-progress);
+    document.getElementById('homeHoldSecs').textContent=Math.max(0,(3*(1-progress))).toFixed(1)+'s';
+    if(holdPct>=100){clearInterval(holdTimer);fireHomeSOS();}
+  },100);
+}
+function cancelHomeHold(){
+  clearInterval(holdTimer);holdPct=0;
+  document.getElementById('homeHoldOv').classList.remove('on');
+  document.getElementById('homeHoldCircle').style.strokeDashoffset=CIRC_HOLD;
+  document.getElementById('homeHoldSecs').textContent='3.0s';
+}
+async function fireHomeSOS(){
+  document.getElementById('homeHoldOv').classList.remove('on');
+  buildSOSGrid('homeSosGrid');
+  const ok=await startCam('homeCamVid','homeCamFb');
+  const gpsStr=GPS?`${GPS.latitude.toFixed(5)}°N, ${GPS.longitude.toFixed(5)}°E`:'Unavailable';
+  document.getElementById('homeSosMsg').innerHTML=
+    `📍 ${gpsStr}<br>📹 Camera: ${ok?'Recording ●':'Permission needed'}<br>📞 Contacts notified · Police: ${U.police||'100'}`;
+  logAlert('SOS','sos',gpsStr);
+  document.getElementById('homeSosOv').classList.add('on');
+  toast('homeToast','🆘 SOS sent to police dashboard!');
+}
+function dismissHomeSOS(){
+  document.getElementById('homeSosOv').classList.remove('on');
+  stopCam();
+}
+
+// ══ SOS GRID ══
+function buildSOSGrid(id){
+  const el=document.getElementById(id);if(!el)return;
+  const gps=GPS?`${GPS.latitude.toFixed(5)}° ${GPS.longitude.toFixed(5)}°`:'Acquiring...';
+  const now=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  el.innerHTML=`
+    <div class="sos-cell"><div class="sos-cl">Name</div><div class="sos-cv">${U.name||'—'}</div></div>
+    <div class="sos-cell"><div class="sos-cl">Phone</div><div class="sos-cv">${U.phone||'—'}</div></div>
+    <div class="sos-cell"><div class="sos-cl">GPS</div><div class="sos-cv g">${gps}</div></div>
+    <div class="sos-cell"><div class="sos-cl">Time</div><div class="sos-cv">${now}</div></div>
+    <div class="sos-cell"><div class="sos-cl">Stream</div><div class="sos-cv g">LIVE ●</div></div>
+    <div class="sos-cell"><div class="sos-cl">Police</div><div class="sos-cv r">${U.police||'100'}</div></div>`;
+}
+
+// ══ CAMERA ══
+let mStream=null;
+async function startCam(vidId,fbId){
+  try{
+    mStream=await navigator.mediaDevices.getUserMedia({video:true,audio:true});
+    const v=document.getElementById(vidId),f=document.getElementById(fbId);
+    if(v){v.srcObject=mStream;v.style.display='block';if(f)f.style.display='none';}
+    return true;
+  }catch(e){return false;}
+}
+function stopCam(){if(mStream){mStream.getTracks().forEach(t=>t.stop());mStream=null;}}
+
+// ══ SUSPICIOUS ══
+function selTag(el,g){
+  if(g==='c') document.querySelectorAll('#cntTags .stag').forEach(t=>t.classList.remove('on'));
+  el.classList.toggle('on');
+}
+function startSafeCall(){
+  const c=U.contacts?.[0];
+  if(c){window.location.href='tel:'+c.phone;document.getElementById('callStat').textContent='● Calling';document.getElementById('callStat').style.color='var(--green)';}
+  else toast('susToast','⚠ No emergency contacts saved. Add them in Profile.');
+}
+function sendSusAlert(){
+  const cnt=[...document.querySelectorAll('#cntTags .stag.on')].map(t=>t.textContent).join(', ')||'Unknown';
+  const rsn=[...document.querySelectorAll('#rsnTags .stag.on')].map(t=>t.textContent).join(', ')||'Not specified';
+  const desc=document.getElementById('susDesc').value.trim();
+  const gps=GPS?`${GPS.latitude.toFixed(5)}°N, ${GPS.longitude.toFixed(5)}°E`:'Unavailable';
+  logAlert('Suspicious','sus',gps,`People: ${cnt} · Reason: ${rsn}${desc?' · '+desc:''}`);
+  toast('susToast','⚠ Alert sent to police dashboard!');
+  setTimeout(()=>goTo('homeScr'),2000);
+}
+
+// ══ AI SHIELD ══
+function buildWave(){
+  const w=document.getElementById('waveEl');if(!w)return;
+  for(let i=0;i<22;i++){
+    const b=document.createElement('div');
+    b.style.cssText=`width:3px;background:var(--phi);border-radius:3px;animation:wa ${(0.35+Math.random()*0.35).toFixed(2)}s ease-in-out ${(i*0.045).toFixed(2)}s infinite`;
+    const h=Math.floor(Math.random()*26)+5;
+    b.style.setProperty('--h',h+'px');
+    b.setAttribute('style',b.getAttribute('style')+`;--h:${h}px`);
+    // inline keyframe not possible; use a class approach
+    b.className='wbar-item';
+    w.appendChild(b);
+  }
+}
+
+const DISTRESS=['help','help me','save me','bachao','madad karo','chod do','koi hai','mat karo','yella bidappa','sahaya madi','bidappa','sahaayam','vadalandi','aagu','dont touch','leave me alone','stop it','please stop','let go','scared','get away','someone help'];
+function toggleAI(){
+  if(aiOn){stopAI();return;}
+  if(!('webkitSpeechRecognition' in window||'SpeechRecognition' in window)){
+    toast('shakeToast','⚠ Use Chrome on Android for speech recognition');
+    // simulation mode
+    aiOn=true;
+    document.getElementById('aiBtn').textContent='⏹ Listening (sim)';
+    document.getElementById('aiRlbl').textContent='SIMULATING';
+    document.getElementById('aiStatus').textContent='Simulation mode';
+    document.querySelectorAll('.wbar-item').forEach(b=>b.style.background='var(--amber)');
+    return;
+  }
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  recog=new SR();recog.continuous=true;recog.interimResults=true;recog.lang='en-IN';
+  recog.onstart=()=>{aiOn=true;document.getElementById('aiBtn').textContent='🎙 Listening...';document.getElementById('aiRlbl').textContent='MONITORING';document.getElementById('aiStatus').textContent='Live';document.querySelectorAll('.wbar-item').forEach(b=>b.style.background='var(--phi)');};
+  recog.onresult=e=>{
+    aiSnips++;document.getElementById('aiCount').textContent=aiSnips;
+    const txt=Array.from(e.results).map(r=>r[0].transcript).join(' ').toLowerCase();
+    document.getElementById('aiLast').textContent=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    const found=DISTRESS.filter(k=>txt.includes(k));
+    if(found.length>0)detectThreat(found,txt);
+  };
+  recog.onerror=e=>{if(e.error==='not-allowed'){toast('shakeToast','⚠ Mic permission denied');stopAI();}};
+  recog.start();
+}
+function stopAI(){
+  aiOn=false;if(recog){try{recog.stop();}catch(e){}recog=null;}
+  document.getElementById('aiBtn').textContent='🎙 Activate';
+  document.getElementById('aiRing').style.cssText='';
+  document.getElementById('aiRlbl').textContent='STANDBY';document.getElementById('aiRlbl').style.color='var(--green)';
+  document.getElementById('threatCard').style.display='none';
+  document.getElementById('safeCard').style.display='block';
+  document.getElementById('aiStatus').textContent='Stopped';
+  document.querySelectorAll('.wbar-item').forEach(b=>b.style.background='var(--phi)');
+}
+function detectThreat(kw,txt){
+  document.getElementById('aiRing').style.background='rgba(255,59,48,0.08)';
+  document.getElementById('aiRing').style.border='2px solid rgba(255,59,48,0.5)';
+  document.getElementById('aiRing').style.animation='hpulse 0.8s ease-in-out infinite';
+  document.getElementById('aiRlbl').textContent='DISTRESS!';document.getElementById('aiRlbl').style.color='var(--red)';
+  document.getElementById('safeCard').style.display='none';
+  document.getElementById('threatCard').style.display='block';
+  const conf=Math.min(70+kw.length*8,98);
+  document.getElementById('tKw').textContent=kw.join(', ');
+  document.getElementById('tConf').textContent=conf+'%';
+  const chips=document.getElementById('tChips');chips.innerHTML='';
+  kw.forEach(k=>{const c=document.createElement('div');c.style.cssText='background:rgba(255,59,48,0.14);border:0.5px solid rgba(255,59,48,0.38);border-radius:20px;padding:2px 8px;font-size:9px;color:var(--red);font-family:DM Mono,monospace';c.textContent=k;chips.appendChild(c);});
+  const gps=GPS?`${GPS.latitude.toFixed(5)}°N ${GPS.longitude.toFixed(5)}°E`:'GPS unavailable';
+  document.getElementById('tMsg').textContent='Auto-alert sent. GPS: '+gps;
+  logAlert('AI Distress','ai',gps,'Keywords: '+kw.join(', ')+' · Snippet: "'+txt.substring(0,60)+'"');
+  document.querySelectorAll('.wbar-item').forEach(b=>b.style.background='var(--red)');
+  toast('shakeToast','🚨 Distress detected — alert sent!');
+}
+
+// ══ SHAKE ══
+function setupShake(){
+  let lx=null,ly=null,lz=null;
+  window.addEventListener('devicemotion',e=>{
+    const a=e.accelerationIncludingGravity;if(!a)return;
+    if(lx===null){lx=a.x;ly=a.y;lz=a.z;return;}
+    const d=Math.abs(a.x-lx)+Math.abs(a.y-ly)+Math.abs(a.z-lz);
+    lx=a.x;ly=a.y;lz=a.z;
+    if(d>40&&!aiOn&&document.getElementById('shakeTog').classList.contains('on')){
+      goTo('shakeScr');toggleAI();
+      toast('shakeToast','📳 Shake detected — AI Shield activated!');
+    }
+  });
+}
+
+// ══ ALERTS ══
+function logAlert(type,cls,gps,detail){
+  const now=new Date();
+  alerts.unshift({type,cls,gps,detail:detail||'',time:now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),name:U.name||'User',phone:U.phone||'—'});
+  U.alerts=alerts;save();renderAlerts();
+}
+function renderAlerts(){
+  const sos=alerts.filter(a=>a.cls==='sos').length;
+  const sus=alerts.filter(a=>a.cls==='sus').length;
+  const ai=alerts.filter(a=>a.cls==='ai').length;
+  ['dSOS','dSUS','dAI'].forEach((id,i)=>{const el=document.getElementById(id);if(el)el.textContent=[sos,sus,ai][i];});
+  const feed=document.getElementById('alertFeed');if(!feed)return;
+  if(!alerts.length){feed.innerHTML='<div class="empty-dash">No active alerts.<br><br>Alerts appear here when you trigger<br>SOS, suspicious, or AI detects distress.</div>';return;}
+  feed.innerHTML=alerts.map((a,i)=>`
+    <div class="alert-card ${a.cls}">
+      <div class="at"><span class="atype ${a.cls==='sos'?'r':a.cls==='sus'?'a':'g'}">${a.cls==='sos'?'★ SOS':a.cls==='sus'?'⚠ SUSPICIOUS':'🎙 AI DETECTED'} — ${a.type}</span><span class="atime">${a.time}</span></div>
+      <div class="aname">${a.name}</div>
+      <div class="adtl">📍 ${a.gps} · 📞 ${a.phone}${a.detail?'<br>'+a.detail:''}</div>
+      <div class="abtns">
+        ${a.phone&&a.phone!=='—'?`<a href="tel:${a.phone}" class="abtn ${a.cls==='sos'?'r':a.cls==='sus'?'a':'o'}">📞 Call</a>`:''}
+        <button class="abtn o" onclick="dismissAlert(${i})">Dismiss</button>
+      </div>
+    </div>`).join('');
+}
+function dismissAlert(i){alerts.splice(i,1);U.alerts=alerts;save();renderAlerts();}
+
+// ══ PROFILE ══
+function renderProfile(){
+  const n=U.name||'—';
+  document.getElementById('profName').textContent=n;
+  document.getElementById('profPhone').textContent=U.phone||'—';
+  document.getElementById('profAv').textContent=(n.split(' ').map(w=>w[0]||'').join('').substring(0,2)||'?').toUpperCase();
+  const ecl=document.getElementById('profECs');if(!ecl)return;
+  const cs=U.contacts||[];
+  if(!cs.length){ecl.innerHTML='<div style="background:var(--card);border-radius:13px;padding:14px;font-size:12px;color:var(--muted);text-align:center">No contacts added</div>';return;}
+  ecl.innerHTML='<div style="background:var(--card);border-radius:13px;overflow:hidden">'+
+    cs.map(c=>`<div style="padding:11px 13px;display:flex;justify-content:space-between;align-items:center;border-bottom:0.5px solid rgba(107,53,204,0.1)"><div><div style="font-size:13px;color:var(--w)">${c.name} <span style="font-size:10px;color:var(--muted)">(${c.relation})</span></div><div style="font-size:10px;color:var(--muted);font-family:'DM Mono',monospace">${c.phone}</div></div><a href="tel:${c.phone}" style="background:rgba(48,209,88,0.12);border:0.5px solid rgba(48,209,88,0.3);border-radius:8px;padding:4px 10px;font-size:10px;color:var(--green);text-decoration:none">📞</a></div>`).join('')+
+  '</div>';
+}
+function resetApp(){if(confirm('Reset SafeLink? All data will be deleted.')){localStorage.removeItem('sl');location.reload();}}
+
+// ══ TOAST ══
+function toast(id,msg){
+  const t=document.getElementById(id);if(!t)return;
+  t.textContent=msg;t.classList.add('on');
+  setTimeout(()=>t.classList.remove('on'),3200);
+}
+
+// wbar animation via style injection
+(()=>{
+  const s=document.createElement('style');
+  s.textContent=`.wbar-item{animation:wa 0.5s ease-in-out infinite}@keyframes wa{0%,100%{height:5px;opacity:0.4}50%{height:var(--h,24px);opacity:1}}`;
+  document.head.appendChild(s);
+})();
+
+// ══ ONBOARDING NAVIGATION ══
+let onboarding = true;
+function gotoHome(){
+  goTo('homeScr');
+}
+function gotoDash(){
+  goTo('dashScr');
+  renderAlerts();
+}
+function finishOnboarding(){
+  onboarding = false;
+  // Hide all onboard navs
+  ['calcOnboardNav','homeOnboardNav','dashOnboardNav'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.style.display='none';
+  });
+  goTo('homeScr');
+  toast('homeToast','✅ Setup complete! SafeLink is now active.');
+}
+
+</script>
+</body>
+</html>
