@@ -1,4 +1,3 @@
-# sos
 # SafeLink 🛡️
 ### Women's Personal Safety App — IDLT Mini Project
 
